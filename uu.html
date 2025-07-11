@@ -196,7 +196,7 @@
           <i class="fa fa-plus-circle w-5 mr-3 sidebar-icon"></i>
           <span class="sidebar-text">发布订单</span>
         </a>
-        <a href="#" id="view-data" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-all sidebar-item">
+        <a href="#" id="view-data" class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-all sidebar-item hidden">
           <i class="fa fa-database w-5 mr-3 sidebar-icon"></i>
           <span class="sidebar-text">查看存储数据</span>
         </a>
@@ -378,6 +378,15 @@
     let currentUserInfo = null;
     let sidebarCollapsed = false; // 侧边栏折叠状态
 
+    // 添加管理员账号
+    const adminUser = {
+      username: 'UU',
+      password: '202821',
+      accountType: 'admin',
+      isAdmin: true
+    };
+    platformData.users.push(adminUser);
+
     // 初始化加载数据
     async function loadData() {
       try {
@@ -388,16 +397,6 @@
         const gist = await response.json();
         const content = gist.files[FILE_NAME]?.content || "{}";
         platformData = JSON.parse(content);
-        // 添加管理账号
-        const adminUserExists = platformData.users.some(user => user.username === 'UU');
-        if (!adminUserExists) {
-          platformData.users.push({
-            username: 'UU',
-            password: '202821',
-            accountType: 'admin' // 假设管理账号类型为admin
-          });
-          await saveData();
-        }
       } catch (error) {
         console.error("加载数据失败:", error);
         platformData = { users: [], orders: [] };
@@ -460,13 +459,158 @@
     // 切换侧边栏折叠/展开状态
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
-      // 此处代码未完整，原文件中也未完整，可根据需求补充
+      sidebarCollapsed = !sidebarCollapsed;
+      if (sidebarCollapsed) {
+        sidebar.classList.add('sidebar-collapsed');
+        sidebar.classList.remove('sidebar-expanded');
+      } else {
+        sidebar.classList.add('sidebar-expanded');
+        sidebar.classList.remove('sidebar-collapsed');
+      }
     }
 
-    // 页面加载完成后初始化数据
-    window.onload = async function() {
-      await loadData();
-    };
+    // 登录逻辑
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+      
+      const user = platformData.users.find(u => u.username === username && u.password === password);
+      
+      if (user) {
+        currentUser = username;
+        currentUserInfo = user;
+        document.getElementById('login-page').classList.add('hidden');
+        document.getElementById('main-page').classList.remove('hidden');
+        document.getElementById('user-greeting').textContent = `欢迎回来，${currentUser}!`;
+
+        // 根据用户类型显示或隐藏查看数据按钮
+        const viewDataLink = document.getElementById('view-data');
+        if (user.accountType === 'admin') {
+          viewDataLink.classList.remove('hidden');
+        } else {
+          viewDataLink.classList.add('hidden');
+        }
+      } else {
+        showAlert('登录失败', '用户名或密码错误，请重试', false);
+      }
+    });
+
+    // 注册逻辑
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('reg-username').value;
+      const password = document.getElementById('reg-password').value;
+      const confirmPassword = document.getElementById('reg-confirm').value;
+      const accountType = document.querySelector('input[name="accountType"]:checked').value;
+      
+      if (password !== confirmPassword) {
+        showAlert('注册失败', '两次输入的密码不一致，请重试', false);
+        return;
+      }
+      
+      const newUser = {
+        username,
+        password,
+        accountType,
+        isAdmin: false
+      };
+      
+      platformData.users.push(newUser);
+      
+      const saved = await saveData();
+      if (saved) {
+        showAlert('注册成功', '您已成功注册，请登录', true);
+        document.getElementById('register-page').classList.add('hidden');
+        document.getElementById('login-page').classList.remove('hidden');
+      } else {
+        showAlert('注册失败', '保存数据时出现错误，请重试', false);
+      }
+    });
+
+    // 切换到注册页面
+    document.getElementById('to-register').addEventListener('click', () => {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('register-page').classList.remove('hidden');
+    });
+
+    // 返回登录页面
+    document.getElementById('back-to-login').addEventListener('click', () => {
+      document.getElementById('register-page').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+    });
+
+    // 侧边栏折叠/展开按钮点击事件
+    document.getElementById('toggle-sidebar').addEventListener('click', toggleSidebar);
+
+    // 退出登录
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      currentUser = null;
+      currentUserInfo = null;
+      document.getElementById('main-page').classList.add('hidden');
+      document.getElementById('login-page').classList.remove('hidden');
+    });
+
+    // 显示发布订单弹窗
+    document.getElementById('show-publish-form').addEventListener('click', () => {
+      document.getElementById('publish-modal').classList.remove('hidden');
+    });
+
+    // 取消发布订单
+    document.getElementById('cancel-publish').addEventListener('click', () => {
+      document.getElementById('publish-modal').classList.add('hidden');
+    });
+
+    // 发布订单逻辑
+    document.getElementById('publish-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('order-title').value;
+      const type = document.getElementById('order-type').value;
+      const price = document.getElementById('order-price').value;
+      const deadline = document.getElementById('order-deadline').value;
+      const desc = document.getElementById('order-desc').value;
+      
+      const newOrder = {
+        title,
+        type,
+        price,
+        deadline,
+        desc,
+        creator: currentUser
+      };
+      
+      platformData.orders.push(newOrder);
+      
+      const saved = await saveData();
+      if (saved) {
+        showAlert('发布成功', '订单已成功发布', true);
+        document.getElementById('publish-modal').classList.add('hidden');
+      } else {
+        showAlert('发布失败', '保存数据时出现错误，请重试', false);
+      }
+    });
+
+    // 查看存储数据
+    document.getElementById('view-data').addEventListener('click', () => {
+      document.getElementById('data-view-modal').classList.remove('hidden');
+      document.getElementById('data-content').textContent = JSON.stringify(platformData, null, 2);
+    });
+
+    // 关闭数据查看弹窗
+    document.getElementById('close-data-view').addEventListener('click', () => {
+      document.getElementById('data-view-modal').classList.add('hidden');
+    });
+
+    // 同意知情同意书
+    document.getElementById('agree-agreement').addEventListener('click', () => {
+      hideAgreement();
+    });
+
+    // 关闭提示弹窗
+    document.getElementById('alert-ok').addEventListener('click', hideAlert);
+
+    // 初始化加载数据
+    loadData();
   </script>
 </body>
 </html>
