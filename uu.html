@@ -397,9 +397,11 @@
         const gist = await response.json();
         const content = gist.files[FILE_NAME]?.content || "{}";
         platformData = JSON.parse(content);
+        renderOrders();
       } catch (error) {
         console.error("加载数据失败:", error);
         platformData = { users: [], orders: [] };
+        showAlert('加载数据失败', '请检查网络连接或Gist配置', false);
       }
     }
 
@@ -418,9 +420,11 @@
             }
           })
         });
+        renderOrders();
         return true;
       } catch (error) {
         console.error("保存数据失败:", error);
+        showAlert('保存数据失败', '请检查网络连接或Gist配置', false);
         return false;
       }
     }
@@ -469,11 +473,35 @@
       }
     }
 
+    // 渲染订单列表
+    function renderOrders() {
+      const orderList = document.getElementById('order-list');
+      orderList.innerHTML = '';
+      platformData.orders.forEach(order => {
+        const orderCard = document.createElement('div');
+        orderCard.classList.add('bg-white', 'rounded-lg', 'p-6', 'card-hover');
+        orderCard.innerHTML = `
+          <h3 class="text-lg font-bold text-gray-800">${order.title}</h3>
+          <p class="text-gray-600 mt-2">类型: ${order.type}</p>
+          <p class="text-gray-600">价格: ¥${order.price}</p>
+          <p class="text-gray-600">期限: ${order.deadline}</p>
+          <p class="text-gray-600">描述: ${order.desc}</p>
+          <p class="text-gray-600">发布者: ${order.creator}</p>
+        `;
+        orderList.appendChild(orderCard);
+      });
+    }
+
     // 登录逻辑
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const username = document.getElementById('login-username').value;
       const password = document.getElementById('login-password').value;
+      
+      if (!username || !password) {
+        showAlert('登录失败', '用户名和密码不能为空', false);
+        return;
+      }
       
       const user = platformData.users.find(u => u.username === username && u.password === password);
       
@@ -504,8 +532,18 @@
       const confirmPassword = document.getElementById('reg-confirm').value;
       const accountType = document.querySelector('input[name="accountType"]:checked').value;
       
+      if (!username || !password || !confirmPassword) {
+        showAlert('注册失败', '用户名和密码不能为空', false);
+        return;
+      }
+      
       if (password !== confirmPassword) {
         showAlert('注册失败', '两次输入的密码不一致，请重试', false);
+        return;
+      }
+      
+      if (platformData.users.some(u => u.username === username)) {
+        showAlert('注册失败', '该用户名已被使用，请选择其他用户名', false);
         return;
       }
       
@@ -569,6 +607,11 @@
       const price = document.getElementById('order-price').value;
       const deadline = document.getElementById('order-deadline').value;
       const desc = document.getElementById('order-desc').value;
+      
+      if (!title || !type || !price || !deadline || !desc) {
+        showAlert('发布失败', '请填写所有订单信息', false);
+        return;
+      }
       
       const newOrder = {
         title,
