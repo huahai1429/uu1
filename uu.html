@@ -229,6 +229,12 @@
       <div id="order-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- 订单卡片会通过JS动态添加 -->
       </div>
+
+      <!-- 抢单信息展示区域 -->
+      <div id="play-orders" class="mt-8">
+        <h2 class="text-2xl font-bold text-gray-800">我的抢单信息</h2>
+        <div id="play-order-list" class="mt-4"></div>
+      </div>
     </main>
   </div>
   
@@ -383,7 +389,8 @@
       username: 'UU',
       password: '202821',
       accountType: 'admin',
-      isAdmin: true
+      isAdmin: true,
+      playOrders: [] // 新增字段，存储抢单信息
     };
     platformData.users.push(adminUser);
 
@@ -421,6 +428,7 @@
           })
         });
         renderOrders();
+        renderPlayOrders(); // 保存数据后更新抢单信息展示
         return true;
       } catch (error) {
         console.error("保存数据失败:", error);
@@ -487,9 +495,43 @@
           <p class="text-gray-600">期限: ${order.deadline}</p>
           <p class="text-gray-600">描述: ${order.desc}</p>
           <p class="text-gray-600">发布者: ${order.creator}</p>
+          <button class="bg-secondary hover:bg-accent text-white font-medium py-2 px-4 rounded-lg mt-4" onclick="grabOrder('${order.title}')">抢单</button>
         `;
         orderList.appendChild(orderCard);
       });
+    }
+
+    // 渲染抢单信息
+    function renderPlayOrders() {
+      const playOrderList = document.getElementById('play-order-list');
+      playOrderList.innerHTML = '';
+      if (currentUserInfo && currentUserInfo.accountType === 'play') {
+        currentUserInfo.playOrders.forEach(order => {
+          const orderCard = document.createElement('div');
+          orderCard.classList.add('bg-white', 'rounded-lg', 'p-6', 'card-hover', 'mt-4');
+          orderCard.innerHTML = `
+            <h3 class="text-lg font-bold text-gray-800">${order.title}</h3>
+            <p class="text-gray-600">价格: ¥${order.price}</p>
+          `;
+          playOrderList.appendChild(orderCard);
+        });
+      }
+    }
+
+    // 抢单逻辑
+    function grabOrder(title) {
+      if (currentUserInfo && currentUserInfo.accountType === 'play') {
+        const order = platformData.orders.find(o => o.title === title);
+        if (order) {
+          currentUserInfo.playOrders.push(order);
+          saveData();
+          showAlert('抢单成功', '您已成功抢到该订单', true);
+        } else {
+          showAlert('抢单失败', '该订单不存在', false);
+        }
+      } else {
+        showAlert('抢单失败', '只有陪玩账号可以抢单', false);
+      }
     }
 
     // 登录逻辑
@@ -519,6 +561,8 @@
         } else {
           viewDataLink.classList.add('hidden');
         }
+
+        renderPlayOrders(); // 登录后加载抢单信息
       } else {
         showAlert('登录失败', '用户名或密码错误，请重试', false);
       }
@@ -551,7 +595,8 @@
         username,
         password,
         accountType,
-        isAdmin: false
+        isAdmin: false,
+        playOrders: [] // 新增字段，存储抢单信息
       };
       
       platformData.users.push(newUser);
